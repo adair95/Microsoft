@@ -8,8 +8,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -33,11 +41,21 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+private val localDimens = staticCompositionLocalOf { defaultDimens }
+
+//Proveedor de Dimenciones
+@Composable
+fun ProviderDimens(dimens: Dimens, content: @Composable () -> Unit) {
+    val dimensionSet = remember { dimens }
+    CompositionLocalProvider(localDimens provides dimensionSet, content = content)
+}
+
 @Composable
 fun MicrosoftTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
+    windowSize: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -50,9 +68,30 @@ fun MicrosoftTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    val view = LocalView.current
+
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+        }
+    }
+
+    val dimension = if (windowSize > WindowWidthSizeClass.Compact) tabletDimens else defaultDimens
+
+    ProviderDimens(dimens = dimension) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
+
+object MicrosoftTheme {
+    val dimens: Dimens
+        @Composable
+        get() = localDimens.current
+}
+
